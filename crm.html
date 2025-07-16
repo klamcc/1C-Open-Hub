@@ -1,0 +1,2681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>C1 Open Hub - Relationship Manager</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Chart.js CDN for charting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Base styles for Inter font and full white background */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #ffffff; /* Full white background */
+            overflow-x: hidden; /* Prevent horizontal scroll due to off-screen menu */
+        }
+
+        /* Main layout - now a single column, content takes full width */
+        .crm-layout {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Top Bar - new design */
+        .top-bar {
+            background-color: #ffffff;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            /* Removed box-shadow for a flatter, outlined look */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 60; /* Higher z-index for the fixed top bar */
+            position: sticky;
+            top: 0;
+            width: 100%;
+        }
+
+        /* Mobile navigation menu - hidden by default */
+        .mobile-nav-menu {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px; /* Width of the revealed menu */
+            height: 100%;
+            background-color: #0f172a; /* Dark slate background for contrast */
+            color: #cbd5e1;
+            padding-top: 4rem; /* Space for the top bar content */
+            transform: translateX(-100%); /* Hidden off-screen by default */
+            transition: transform 0.3s ease-in-out;
+            z-index: 70; /* Above top bar */
+            box-shadow: 2px 0 5px rgba(0,0,0,0.2); /* Keep shadow for menu itself */
+        }
+
+        .mobile-nav-menu.open {
+            transform: translateX(0); /* Slide in */
+        }
+
+        .mobile-nav-menu .nav-item {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            border-radius: 0.5rem;
+            margin: 0.5rem 1rem; /* Adjust margins for items within the menu */
+        }
+
+        .mobile-nav-menu .nav-item:hover {
+            background-color: #1e293b; /* Darker slate on hover */
+        }
+
+        .mobile-nav-menu .nav-item.active {
+            background-color: #4f46e5; /* Indigo-600 for active item */
+            color: white;
+        }
+
+        .mobile-nav-menu .nav-item i {
+            font-size: 20px; /* Icon size */
+            margin-right: 1rem; /* Space between icon and text */
+        }
+
+        .mobile-nav-menu .nav-item span {
+            font-size: 1rem; /* Larger font for text labels */
+        }
+
+        /* Overlay for when mobile menu is open */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 65; /* Between menu and top bar */
+            display: none; /* Hidden by default */
+        }
+
+        .overlay.active {
+            display: block;
+        }
+
+        /* Main content area styling */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem; /* Add padding to the main content area */
+            background-color: #ffffff; /* Ensure main content background is white */
+        }
+
+        /* Content header styling (section title, main actions) */
+        .content-header {
+            background-color: #ffffff;
+            padding: 1.5rem;
+            /* Removed individual border and border-radius. Parent .bordered-section handles it. */
+            border-bottom: 1px solid #e2e8f0; /* Separator line between header and content */
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 30;
+        }
+
+        /* Tab content containers (e.g., Dashboard, Contacts, etc.) */
+        .tab-content {
+            background-color: #ffffff; /* Ensure content background is white */
+            border-radius: 0.75rem; /* Rounded corners for the entire content block */
+            box-shadow: none; /* Removed shadow for outline look */
+            margin-bottom: 1.5rem; /* Space between content blocks */
+            overflow: hidden; /* Crucial to clip children and apply border-radius */
+        }
+
+        /* New class for content sections that should have a border */
+        .bordered-section {
+            border: 1px solid #e2e8f0; /* Added full border for the content area */
+        }
+
+        /* No need for .bordered-section.has-header specific border-top/radius resets anymore */
+
+
+        /* Empty state styling for no data */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 4rem 2rem;
+            color: #6b7280;
+            flex-grow: 1;
+        }
+
+        .empty-state i {
+            font-size: 80px;
+            margin-bottom: 1.5rem;
+            color: #d1d5db;
+        }
+
+        /* Pagination styling */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+            background-color: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            border-bottom-left-radius: 0.75rem;
+            border-bottom-right-radius: 0.75rem;
+        }
+
+        .pagination button {
+            @apply px-3 py-1 rounded-md text-sm mx-1;
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            background-color: #e5e7eb;
+        }
+
+        .pagination span {
+            @apply text-sm text-gray-700 mx-2;
+        }
+
+        /* Modal styling */
+        .modal {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: #fff;
+            margin: auto;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 90%;
+            width: 500px;
+            position: relative;
+        }
+
+        .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+
+        /* Confirmation Modal Specific Styles */
+        #confirmationModal .modal-content {
+            width: 400px;
+            padding: 1.5rem;
+        }
+        #confirmationModal .modal-content h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        #confirmationModal .modal-content p {
+            margin-bottom: 1.5rem;
+            color: #4b5563;
+        }
+        #confirmationModal .modal-content .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+        }
+        #confirmationModal .modal-content .button-group button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: background-color 0.2s ease-in-out;
+        }
+        #confirmationModal .modal-content .button-group .confirm-btn {
+            background-color: #ef4444;
+            color: white;
+        }
+        #confirmationModal .modal-content .button-group .confirm-btn:hover {
+            background-color: #dc2626;
+        }
+        #confirmationModal .modal-content .button-group .cancel-btn {
+            background-color: #e5e7eb;
+            color: #374151;
+        }
+        #confirmationModal .modal-content .button-group .cancel-btn:hover {
+            background-color: #d1d5db;
+        }
+
+        /* Message box for notifications */
+        .message-box {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1001;
+            font-weight: 500;
+        }
+        .message-box.success {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .message-box.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .message-box.info {
+            background-color: #bfdbfe;
+            color: #1e40af;
+        }
+        /* New class to explicitly hide elements */
+        .hidden-element {
+            display: none !important;
+        }
+
+
+        /* Styles for the emission source inputs */
+        .emission-source-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .emission-source-item input {
+            flex-grow: 1;
+        }
+        .emission-source-item .remove-source-btn {
+            background-color: #ef4444;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .emission-source-item .remove-source-btn:hover {
+            background-color: #dc2626;
+        }
+        /* Chart.js container for pie charts in table */
+        .chart-container {
+            width: 100px;
+            height: 100px;
+            margin-left: 1rem;
+            flex-shrink: 0;
+        }
+        .chart-container canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Line graph specific styles for Chart.js */
+        .line-graph-container {
+            width: 100%;
+            height: 400px; /* Fixed height for the graph */
+            margin-top: 1.5rem; /* Space from the table above */
+            padding: 1.5rem;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center; /* Center the chart within its container */
+            justify-content: center;
+        }
+        .line-graph-container canvas {
+            max-width: 100%; /* Ensure canvas is responsive */
+            max-height: 100%;
+        }
+
+        /* Courses table hover effect */
+        #coursesTableBody tr:hover {
+            background-color: #f3f4f6; /* Light gray background on hover */
+            cursor: pointer;
+        }
+        /* Chat Section Specific Styles */
+        .chat-post {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .chat-post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+        .chat-avatar {
+            width: 40px;
+            height: 40px;
+            background-color: #6366f1; /* Indigo for avatars */
+            color: white;
+            border-radius: 9999px; /* Full circle */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+        }
+        .chat-username {
+            font-weight: 600;
+            color: #1f2937;
+            margin-right: 0.5rem;
+        }
+        .chat-role {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        .chat-post-title {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: #374151;
+            margin-bottom: 0.5rem;
+        }
+        .chat-post-content {
+            color: #4b5563;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        .chat-post-actions {
+            display: flex;
+            gap: 1rem;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 0.75rem;
+            margin-top: 0.75rem; /* Adjusted from 1rem */
+        }
+        .chat-post-actions button {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: #6b7280;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .chat-post-actions button:hover {
+            color: #4f46e5;
+        }
+        .chat-comments-section {
+            margin-top: 0.75rem; /* Adjusted from 1rem */
+            padding-top: 1rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        .chat-comment {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+            background-color: #ffffff;
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            border: 1px solid #f3f4f6;
+        }
+        .chat-comment-avatar {
+            width: 28px;
+            height: 28px;
+            background-color: #9ca3af; /* Gray for comment avatars */
+            color: white;
+            border-radius: 9999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
+        }
+        .chat-comment-content {
+            flex-grow: 1;
+        }
+        .chat-comment-author {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        .chat-comment-text {
+            color: #4b5563;
+            font-size: 0.875rem;
+        }
+        .chat-input-area {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+        .chat-input-area input {
+            flex-grow: 1;
+            border-radius: 0.5rem;
+        }
+        .chat-input-area button {
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div class="message-box hidden-element" id="messageBox"></div>
+
+    <div id="confirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeConfirmationModal()">&times;</span>
+            <h3 id="confirmationModalTitle">Confirm Action</h3>
+            <p id="confirmationModalMessage">Are you sure you want to proceed with this action?</p>
+            <div class="button-group">
+                <button class="cancel-btn" onclick="closeConfirmationModal()">Cancel</button>
+                <button class="confirm-btn" id="confirmActionButton">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="contactModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeContactModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="contactModalTitle">Create New Contact</h3>
+            <form id="contactForm" onsubmit="handleContactFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="contactName" class="block text-gray-700 text-sm font-bold mb-2">Name:</label>
+                    <input type="text" id="contactName" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="contactEmail" class="block text-gray-700 text-sm font-bold mb-2">Email:</label>
+                    <input type="email" id="contactEmail" name="email" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="contactPhone" class="block text-gray-700 text-sm font-bold mb-2">Phone:</label>
+                    <input type="tel" id="contactPhone" name="phone" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-6">
+                    <label for="contactCompany" class="block text-gray-700 text-sm font-bold mb-2">Company:</label>
+                    <input type="text" id="contactCompany" name="company" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Contact</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="companyModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeCompanyModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="companyModalTitle">Create New Company</h3>
+            <form id="companyForm" onsubmit="handleCompanyFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="companyName" class="block text-gray-700 text-sm font-bold mb-2">Company Name:</label>
+                    <input type="text" id="companyName" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="companyIndustry" class="block text-gray-700 text-sm font-bold mb-2">Industry:</label>
+                    <input type="text" id="companyIndustry" name="industry" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="companyWebsite" class="block text-gray-700 text-sm font-bold mb-2">Website:</label>
+                    <input type="url" id="companyWebsite" name="website" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="companyPhone" class="block text-gray-700 text-sm font-bold mb-2">Phone:</label>
+                    <input type="tel" id="companyPhone" name="phone" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="companyCity" class="block text-gray-700 text-sm font-bold mb-2">City:</label>
+                    <input type="text" id="companyCity" name="city" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="companyState" class="block text-gray-700 text-sm font-bold mb-2">State:</label>
+                    <input type="text" id="companyState" name="state" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-6">
+                    <label for="companyCountry" class="block text-gray-700 text-sm font-bold mb-2">Country:</label>
+                    <input type="text" id="companyCountry" name="country" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Company</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="dealModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeDealModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="dealModalTitle">Create New Deal</h3>
+            <form id="dealForm" onsubmit="handleDealFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="dealName" class="block text-gray-700 text-sm font-bold mb-2">Deal Name:</label>
+                    <input type="text" id="dealName" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="dealAmount" class="block text-gray-700 text-sm font-bold mb-2">Amount ($):</label>
+                    <input type="number" id="dealAmount" name="amount" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.01" required>
+                </div>
+                <div class="mb-4">
+                    <label for="dealCloseDate" class="block text-gray-700 text-sm font-bold mb-2">Close Date:</label>
+                    <input type="date" id="dealCloseDate" name="closeDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="dealStage" class="block text-gray-700 text-sm font-bold mb-2">Stage:</label>
+                    <select id="dealStage" name="stage" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        <option value="">Select Stage</option>
+                        <option value="Qualification">Qualification</option>
+                        <option value="Needs Analysis">Needs Analysis</option>
+                        <option value="Proposal">Proposal</option>
+                        <option value="Negotiation">Negotiation</option>
+                        <option value="Closed Won">Closed Won</option>
+                        <option value="Closed Lost">Closed Lost</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label for="dealAssociatedContact" class="block text-gray-700 text-sm font-bold mb-2">Associated Contact (Name):</label>
+                    <input type="text" id="dealAssociatedContact" name="associatedContact" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Deal</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="taskModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeTaskModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="taskModalTitle">Create New Task</h3>
+            <form id="taskForm" onsubmit="handleTaskFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="taskName" class="block text-gray-700 text-sm font-bold mb-2">Task Name:</label>
+                    <input type="text" id="taskName" name="name" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="taskDueDate" class="block text-gray-700 text-sm font-bold mb-2">Due Date:</label>
+                    <input type="date" id="taskDueDate" name="dueDate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="taskStatus" class="block text-gray-700 text-sm font-bold mb-2">Status:</label>
+                    <select id="taskStatus" name="status" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                        <option value="Not Started">Not Started</option>
+                        <option value="In Progress">In Progress</option>
+                        <option value="Completed">Completed</option>
+                    </select>
+                </div>
+                <div class="mb-6">
+                    <label for="taskAssociatedItem" class="block text-gray-700 text-sm font-bold mb-2">Associated Item (Contact/Company/Deal Name):</label>
+                    <input type="text" id="taskAssociatedItem" name="associatedItem" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Task</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create/Edit Emission Modal Structure -->
+    <div id="emissionModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeEmissionModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="emissionModalTitle">Add Emission Record</h3>
+            <form id="emissionForm" onsubmit="handleEmissionFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="emissionCompany" class="block text-gray-700 text-sm font-bold mb-2">Company Name:</label>
+                    <input type="text" id="emissionCompany" name="company" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="emissionYear" class="block text-gray-700 text-sm font-bold mb-2">Year:</label>
+                    <input type="number" id="emissionYear" name="year" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" min="1900" max="2100" required>
+                </div>
+                <div class="mb-4">
+                    <label for="emissionScope1" class="block text-gray-700 text-sm font-bold mb-2">Scope 1 Emissions (tCO2e):</label>
+                    <input type="number" id="emissionScope1" name="scope1" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.01" value="0">
+                </div>
+                <div class="mb-4">
+                    <label for="emissionScope2" class="block text-gray-700 text-sm font-bold mb-2">Scope 2 Emissions (tCO2e):</label>
+                    <input type="number" id="emissionScope2" name="scope2" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.01" value="0">
+                </div>
+                <div class="mb-4">
+                    <label for="emissionScope3" class="block text-gray-700 text-sm font-bold mb-2">Scope 3 Emissions (tCO2e):</label>
+                    <input type="number" id="emissionScope3" name="scope3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" step="0.01" value="0">
+                </div>
+
+                <!-- CO2 Sources input -->
+                <div class="mb-4">
+                    <label class="block text-gray-700 text-sm font-bold mb-2">CO2 Emission Sources (Percentage Breakdown):</label>
+                    <div id="emissionSourcesContainer">
+                        <!-- Dynamic source inputs will go here -->
+                    </div>
+                    <button type="button" class="mt-2 bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300" onclick="addEmissionSourceInput()">Add Source</button>
+                </div>
+
+                <div class="mb-4 flex items-center">
+                    <input type="checkbox" id="generateChartCheckbox" class="mr-2">
+                    <label for="generateChartCheckbox" class="text-gray-700 text-sm">Generate Chart for this record</label>
+                </div>
+
+                <div class="mb-6">
+                    <label for="emissionNotes" class="block text-gray-700 text-sm font-bold mb-2">Notes:</label>
+                    <textarea id="emissionNotes" name="notes" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"></textarea>
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Emission Record</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- The courseModal is no longer needed as add/edit functionality is removed from Courses tab -->
+    <!-- <div id="courseModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" onclick="closeCourseModal()">&times;</span>
+            <h3 class="text-xl font-semibold mb-4" id="courseModalTitle">Add New Course</h3>
+            <form id="courseForm" onsubmit="handleCourseFormSubmit(event)">
+                <div class="mb-4">
+                    <label for="courseTitle" class="block text-gray-700 text-sm font-bold mb-2">Course Title:</label>
+                    <input type="text" id="courseTitle" name="title" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                </div>
+                <div class="mb-4">
+                    <label for="courseDescription" class="block text-gray-700 text-sm font-bold mb-2">Description:</label>
+                    <textarea id="courseDescription" name="description" rows="3" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="courseDuration" class="block text-gray-700 text-sm font-bold mb-2">Duration:</label>
+                    <input type="text" id="courseDuration" name="duration" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-4">
+                    <label for="courseCertificate" class="block text-gray-700 text-sm font-bold mb-2">Certificate:</label>
+                    <input type="text" id="courseCertificate" name="certificate" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <div class="mb-6">
+                    <label for="courseRoleFocus" class="block text-gray-700 text-sm font-bold mb-2">Role Focus:</label>
+                    <input type="text" id="courseRoleFocus" name="roleFocus" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Save Course</button>
+            </form>
+        </div>
+    </div> -->
+
+
+    <div class="crm-layout">
+        <!-- Top Bar (Header) -->
+        <header class="top-bar">
+            <div class="flex items-center">
+                <button class="text-gray-600 hover:text-gray-900 mr-4 text-2xl" onclick="toggleMobileNav()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <h1 class="text-xl font-semibold text-gray-800">C1 Open Hub</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-gray-600 hover:text-gray-900">
+                    <i class="fas fa-plus text-xl"></i>
+                </button>
+                <button class="text-gray-600 hover:text-gray-900">
+                    <i class="fas fa-bell text-xl"></i>
+                </button>
+                <button class="text-gray-600 hover:text-gray-900">
+                    <i class="fas fa-cog text-xl"></i>
+                </button>
+                <div class="w-8 h-8 bg-indigo-500 rounded-full flex items-center justify-center text-white font-semibold text-sm">S</div>
+            </div>
+        </header>
+
+        <!-- Mobile Navigation Menu (Hidden by default) -->
+        <nav id="mobileNavMenu" class="mobile-nav-menu">
+            <div id="dashboardTab" class="nav-item active" onclick="showTab('dashboard')">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard</span>
+            </div>
+            <div id="contactsTab" class="nav-item" onclick="showTab('contacts')">
+                <i class="fas fa-users"></i>
+                <span>Contacts</span>
+            </div>
+            <div id="companiesTab" class="nav-item" onclick="showTab('companies')">
+                <i class="fas fa-building"></i>
+                <span>Companies</span>
+            </div>
+            <div id="dealsTab" class="nav-item" onclick="showTab('deals')">
+                <i class="fas fa-handshake"></i>
+                <span>Deals</span>
+            </div>
+            <div id="tasksTab" class="nav-item" onclick="showTab('tasks')">
+                <i class="fas fa-tasks"></i>
+                <span>Tasks</span>
+            </div>
+            <div id="emissionsTab" class="nav-item" onclick="showTab('emissions')">
+                <i class="fas fa-smog"></i>
+                <span>Emissions</span>
+            </div>
+            <div id="coursesTab" class="nav-item" onclick="showTab('courses')">
+                <i class="fas fa-book-open"></i>
+                <span>Courses</span>
+            </div>
+            <div id="chatTab" class="nav-item" onclick="showTab('chat')">
+                <i class="fas fa-comments"></i>
+                <span>Chat</span>
+            </div>
+        </nav>
+
+        <!-- Overlay for when mobile nav is open -->
+        <div id="mobileNavOverlay" class="overlay" onclick="toggleMobileNav()"></div>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Content Area for each tab -->
+            <div id="dashboardContent" class="tab-content p-6">
+                <h2 class="text-2xl font-semibold text-gray-800 mb-4">Dashboard Overview</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Dashboard Cards -->
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Total Contacts</h3>
+                            <p class="text-3xl font-bold text-indigo-600" id="dashboardTotalContacts">0</p>
+                        </div>
+                        <i class="fas fa-users text-indigo-400 text-4xl"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Total Companies</h3>
+                            <p class="text-3xl font-bold text-blue-600" id="dashboardTotalCompanies">0</p>
+                        </div>
+                        <i class="fas fa-building text-blue-400 text-4xl"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Total Deals</h3>
+                            <p class="text-3xl font-bold text-green-600" id="dashboardTotalDeals">0</p>
+                        </div>
+                        <i class="fas fa-handshake text-green-400 text-4xl"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Open Tasks</h3>
+                            <p class="text-3xl font-bold text-yellow-600" id="dashboardOpenTasks">0</p>
+                        </div>
+                        <i class="fas fa-tasks text-yellow-400 text-4xl"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Total Deal Value</h3>
+                            <p class="text-3xl font-bold text-purple-600" id="dashboardTotalDealValue">$0</p>
+                        </div>
+                        <i class="fas fa-dollar-sign text-purple-400 text-4xl"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-700 mb-2">Total CO2 Emissions</h3>
+                            <p class="text-3xl font-bold text-gray-600" id="dashboardTotalEmissions">0 tCO2e</p>
+                        </div>
+                        <i class="fas fa-smog text-gray-400 text-4xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div id="contactsContent" class="tab-content bordered-section hidden">
+                <!-- Contacts Header -->
+                <header class="content-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-2xl font-semibold text-gray-800">Contacts</h2>
+                            <span class="text-gray-500 text-lg" id="contactsRecordCount">0 records</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500" onclick="openContactModal()">
+                                Create contact
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Filter Pills and Search Bar -->
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="contactSearchInput" placeholder="Search name, phone, email, company" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderContacts(this.value)">
+                            <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Contacts Table/Empty State -->
+                <div class="flex flex-col flex-grow">
+                    <div class="empty-state" id="contactsEmptyState">
+                        <i class="fas fa-search"></i>
+                        <p class="text-xl font-semibold mb-2">No Contacts match the current filters.</p>
+                        <p>Expecting to see new Contacts? Try again in a few seconds as the system catches up.</p>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200 hidden" id="contactsTable"> <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                                <th scope="col" class="relative px-6 py-3">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactsTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                    <div class="pagination hidden" id="contactsPagination">
+                        <button id="contactsPrevBtn" onclick="changePage('contacts', -1)" disabled>Prev</button>
+                        <span id="contactsPageInfo"></span>
+                        <button id="contactsNextBtn" onclick="changePage('contacts', 1)">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="companiesContent" class="tab-content bordered-section hidden">
+                <header class="content-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-2xl font-semibold text-gray-800">Companies</h2>
+                            <span class="text-gray-500 text-lg" id="companiesRecordCount">0 records</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500" onclick="openCompanyModal()">
+                                Create company
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="companySearchInput" placeholder="Search company name, industry, website, phone, city, state, country" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderCompanies(this.value)">
+                            <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                    </div>
+                </header>
+                <div class="flex flex-col flex-grow">
+                    <div class="empty-state" id="companiesEmptyState">
+                        <i class="fas fa-building"></i>
+                        <p class="text-xl font-semibold mb-2">No Companies found.</p>
+                        <p>Create your first company record to get started.</p>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200 hidden" id="companiesTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Industry</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Website</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                                <th scope="col" class="relative px-6 py-3">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="companiesTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                    <div class="pagination hidden" id="companiesPagination">
+                        <button id="companiesPrevBtn" onclick="changePage('companies', -1)" disabled>Prev</button>
+                        <span id="companiesPageInfo"></span>
+                        <button id="companiesNextBtn" onclick="changePage('companies', 1)">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="dealsContent" class="tab-content bordered-section hidden">
+                <header class="content-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-2xl font-semibold text-gray-800">Deals</h2>
+                            <span class="text-gray-500 text-lg" id="dealsRecordCount">0 records</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500" onclick="openDealModal()">
+                                Create deal
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="dealSearchInput" placeholder="Search deal name, amount, close date, stage, associated contact" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderDeals(this.value)">
+                            <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                    </div>
+                </header>
+                <div class="flex flex-col flex-grow">
+                    <div class="empty-state" id="dealsEmptyState">
+                        <i class="fas fa-handshake"></i>
+                        <p class="text-xl font-semibold mb-2">No Deals found.</p>
+                        <p>Start tracking your sales opportunities here.</p>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200 hidden" id="dealsTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deal Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Close Date</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stage</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associated Contact</th>
+                                <th scope="col" class="relative px-6 py-3">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="dealsTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                    <div class="pagination hidden" id="dealsPagination">
+                        <button id="dealsPrevBtn" onclick="changePage('deals', -1)" disabled>Prev</button>
+                        <span id="dealsPageInfo"></span>
+                        <button id="dealsNextBtn" onclick="changePage('deals', 1)">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tasksContent" class="tab-content bordered-section hidden">
+                <header class="content-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-2xl font-semibold text-gray-800">Tasks</h2>
+                            <span class="text-gray-500 text-lg" id="tasksRecordCount">0 records</span>
+                        </div>
+                        <div class="flex items-center space-x-3">
+                            <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500" onclick="openTaskModal()">
+                                Create task
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="taskSearchInput" placeholder="Search task name, due date, status, associated item" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderTasks(this.value)">
+                            <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                    </div>
+                </header>
+                <div class="flex flex-col flex-grow">
+                    <div class="empty-state" id="tasksEmptyState">
+                        <i class="fas fa-tasks"></i>
+                        <p class="text-xl font-semibold mb-2">No Tasks found.</p>
+                        <p>Organize your to-do list and boost productivity.</p>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200 hidden" id="tasksTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Task Name</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Associated Item</th>
+                                <th scope="col" class="relative px-6 py-3">
+                                    <span class="sr-only">Actions</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tasksTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                    </table>
+                    <div class="pagination hidden" id="tasksPagination">
+                        <button id="tasksPrevBtn" onclick="changePage('tasks', -1)" disabled>Prev</button>
+                        <span id="tasksPageInfo"></span>
+                        <button id="tasksNextBtn" onclick="changePage('tasks', 1)">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="emissionsContent" class="tab-content hidden">
+                <div class="emissions-table-section bordered-section mb-6">
+                    <header class="content-header rounded-t-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-2">
+                                <h2 class="text-2xl font-semibold text-gray-800">CO2 Emissions</h2>
+                                <span class="text-gray-500 text-lg" id="emissionsRecordCount">0 records</span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <button class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500" onclick="openEmissionModal()">
+                                    Add Emission Record
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <div class="relative flex-grow">
+                                <input type="text" id="emissionSearchInput" placeholder="Search company, year, scopes, notes" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderEmissions(this.value)">
+                                <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                            </div>
+                        </div>
+                    </header>
+                    <div class="flex flex-col flex-grow">
+                        <div class="empty-state" id="emissionsEmptyState">
+                            <i class="fas fa-smog"></i>
+                            <p class="text-xl font-semibold mb-2">No Emission Records found.</p>
+                            <p>Add your first CO2 emission record to get started.</p>
+                        </div>
+                        <table class="min-w-full divide-y divide-gray-200 hidden" id="emissionsTable">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Year</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope 1 (tCO2e)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope 2 (tCO2e)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Scope 3 (tCO2e)</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total (tCO2e)</th>
+                                    <th scope="col" class="relative px-6 py-3">
+                                        <span class="sr-only">Actions</span>
+                                    </th>
+                                    <th scope="col" class="relative px-6 py-3">
+                                        <span class="sr-only">Chart</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="emissionsTableBody" class="bg-white divide-y divide-gray-200">
+                            </tbody>
+                        </table>
+                        <div class="pagination hidden" id="emissionsPagination">
+                            <button id="emissionsPrevBtn" onclick="changePage('emissions', -1)" disabled>Prev</button>
+                            <span id="emissionsPageInfo"></span>
+                            <button id="emissionsNextBtn" onclick="changePage('emissions', 1)">Next</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- New section for Line Graph -->
+                <div class="line-graph-container" id="emissionsLineGraphContainer">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Emissions Trends Over Time</h3>
+                    <canvas id="emissionsLineGraphCanvas"></canvas>
+                </div>
+            </div>
+
+            <div id="coursesContent" class="tab-content bordered-section hidden">
+                <header class="content-header">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <h2 class="text-2xl font-semibold text-gray-800">Courses</h2>
+                            <span class="text-gray-500 text-lg" id="coursesRecordCount">0 records</span>
+                        </div>
+                        <!-- Removed "Add Course" button -->
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative flex-grow">
+                            <input type="text" id="courseSearchInput" placeholder="Search course title, description, provider, role focus" class="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" onkeyup="renderCourses(this.value)">
+                            <i class="fas fa-search text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                        </div>
+                    </div>
+                </header>
+                <div class="flex flex-col flex-grow">
+                    <div class="empty-state" id="coursesEmptyState">
+                        <i class="fas fa-book-open"></i>
+                        <p class="text-xl font-semibold mb-2">No Courses found.</p>
+                        <p>Add your first course to start building your curriculum.</p>
+                    </div>
+                    <table class="min-w-full divide-y divide-gray-200 hidden" id="coursesTable">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Provider</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Certificate</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role Focus</th>
+                                <!-- Removed "Actions" column header -->
+                            </tr>
+                        </thead>
+                        <tbody id="coursesTableBody" class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    </table>
+                    <div class="pagination hidden" id="coursesPagination">
+                        <button id="coursesPrevBtn" onclick="changePage('courses', -1)" disabled>Prev</button>
+                        <span id="coursesPageInfo"></span>
+                        <button id="coursesNextBtn" onclick="changePage('courses', 1)">Next</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="chatContent" class="tab-content bordered-section hidden">
+                <header class="content-header rounded-t-lg">
+                    <h2 class="text-2xl font-semibold text-gray-800">Community Hub</h2>
+                </header>
+                <div class="p-6 flex flex-col flex-grow">
+                    <div class="flex-grow overflow-y-auto">
+                        <!-- Individual Post 1: Contract - ERP System Development -->
+                        <div class="chat-post">
+                            <div class="chat-post-header">
+                                <div class="chat-avatar bg-purple-500">SE</div>
+                                <div>
+                                    <span class="chat-username">Synergy Enterprises</span>
+                                    <span class="chat-role">Business Partner</span>
+                                    <span class="text-xs text-gray-500 ml-2">2 hours ago</span>
+                                </div>
+                            </div>
+                            <h4 class="chat-post-title">Internship: Junior ERP System Developer</h4>
+                            <p class="chat-post-content">
+                                We're seeking a motivated intern to assist in the development and customization of our next-gen ERP solutions. Ideal candidates will have a basic understanding of database management and object-oriented programming. Great opportunity to learn about enterprise software architecture!
+                            </p>
+                            <div class="chat-post-actions">
+                                <button disabled><i class="fas fa-thumbs-up"></i> Like (15)</button>
+                                <button disabled><i class="fas fa-comment-alt"></i> Comment (4)</button>
+                                <button disabled><i class="fas fa-share"></i> Share</button>
+                            </div>
+                            <div class="chat-comments-section">
+                                <div class="chat-comment">
+                                    <div class="chat-comment-avatar bg-gray-400">M</div>
+                                    <div class="chat-comment-content">
+                                        <p class="chat-comment-author">Maria G. <span class="text-xs text-gray-500 font-normal">1 hour ago</span></p>
+                                        <p class="chat-comment-text">This sounds like a perfect fit for my studies in enterprise systems!</p>
+                                    </div>
+                                </div>
+                                <div class="chat-comment">
+                                    <div class="chat-comment-avatar bg-gray-400">K</div>
+                                    <div class="chat-comment-content">
+                                        <p class="chat-comment-author">Kyle T. <span class="text-xs text-gray-500 font-normal">30 minutes ago</span></p>
+                                        <p class="chat-comment-text">Do you work with any specific ERP frameworks?</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Post 2: Internship - Digital Transformation Analyst -->
+                        <div class="chat-post">
+                            <div class="chat-post-header">
+                                <div class="chat-avatar bg-teal-500">DT</div>
+                                <div>
+                                    <span class="chat-username">Digital Transform Co.</span>
+                                    <span class="chat-role">Company</span>
+                                    <span class="text-xs text-gray-500 ml-2">5 hours ago</span>
+                                </div>
+                            </div>
+                            <h4 class="chat-post-title">Internship: Digital Transformation Analyst</h4>
+                            <p class="chat-post-content">
+                                Join our team to help businesses navigate their digital journeys. Interns will assist in analyzing current processes, identifying automation opportunities, and supporting the implementation of new digital tools. A passion for innovation is a must!
+                            </p>
+                            <div class="chat-post-actions">
+                                <button disabled><i class="fas fa-thumbs-up"></i> Like (28)</button>
+                                <button disabled><i class="fas fa-comment-alt"></i> Comment (7)</button>
+                                <button disabled><i class="fas fa-share"></i> Share</button>
+                            </div>
+                            <div class="chat-comments-section">
+                                <div class="chat-comment">
+                                    <div class="chat-comment-avatar bg-gray-400">L</div>
+                                    <div class="chat-comment-content">
+                                        <p class="chat-comment-author">Liam P. <span class="text-xs text-gray-500 font-normal">3 hours ago</span></p>
+                                        <p class="chat-comment-text">This aligns perfectly with my interest in business process re-engineering.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Post 3: General Announcement - Sustainability Initiative -->
+                        <div class="chat-post">
+                            <div class="chat-post-header">
+                                <div class="chat-avatar bg-green-500">ES</div>
+                                <div>
+                                    <span class="chat-username">Eco Solutions Inc.</span>
+                                    <span class="chat-role">Sustainability Partner</span>
+                                    <span class="text-xs text-gray-500 ml-2">Yesterday</span>
+                                </div>
+                            </div>
+                            <h4 class="chat-post-title">Seeking Interns for Green IT & Sustainability Projects</h4>
+                            <p class="chat-post-content">
+                                We're launching new initiatives to reduce the carbon footprint of IT infrastructure and are looking for interns passionate about environmental sustainability and technology. Help us research, implement, and track green computing practices.
+                            </p>
+                            <div class="chat-post-actions">
+                                <button disabled><i class="fas fa-thumbs-up"></i> Like (55)</button>
+                                <button disabled><i class="fas fa-comment-alt"></i> Comment (10)</button>
+                                <button disabled><i class="fas fa-share"></i> Share</button>
+                            </div>
+                        </div>
+
+                        <!-- Individual Post 4: Accounting Software Internship -->
+                        <div class="chat-post">
+                            <div class="chat-post-header">
+                                <div class="chat-avatar bg-blue-500">FA</div>
+                                <div>
+                                    <span class="chat-username">Finance Automation Ltd.</span>
+                                    <span class="chat-role">Company</span>
+                                    <span class="text-xs text-gray-500 ml-2">2 days ago</span>
+                                </div>
+                            </div>
+                            <h4 class="chat-post-title">Accounting Software Support Intern</h4>
+                            <p class="chat-post-content">
+                                Opportunity for an accounting or finance student to intern with our software support team. You'll gain experience with accounting principles applied in software, troubleshoot user issues, and contribute to documentation.
+                            </p>
+                            <div class="chat-post-actions">
+                                <button disabled><i class="fas fa-thumbs-up"></i> Like (20)</button>
+                                <button disabled><i class="fas fa-comment-alt"></i> Comment (5)</button>
+                                <button disabled><i class="fas fa-share"></i> Share</button>
+                            </div>
+                            <div class="chat-comments-section">
+                                <div class="chat-comment">
+                                    <div class="chat-comment-avatar bg-gray-400">C</div>
+                                    <div class="chat-comment-content">
+                                        <p class="chat-comment-author">Chloe D. <span class="text-xs text-gray-500 font-normal">1 day ago</span></p>
+                                        <p class="chat-comment-text">Perfect for my accounting major!</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Individual Post 5: HR Management System Internship -->
+                        <div class="chat-post">
+                            <div class="chat-post-header">
+                                <div class="chat-avatar bg-yellow-500">HR</div>
+                                <div>
+                                    <span class="chat-username">Human Resources Solutions</span>
+                                    <span class="chat-role">Company</span>
+                                    <span class="text-xs text-gray-500 ml-2">3 days ago</span>
+                                </div>
+                            </div>
+                            <h4 class="chat-post-title">Internship: HRIS Data Analyst</h4>
+                            <p class="chat-post-content">
+                                We're looking for an intern to work with our Human Resources Information Systems (HRIS) data. This role involves data entry, report generation, and ensuring data integrity within our HR management software. Good analytical skills are a plus.
+                            </p>
+                            <div class="chat-post-actions">
+                                <button disabled><i class="fas fa-thumbs-up"></i> Like (18)</button>
+                                <button disabled><i class="fas fa-comment-alt"></i> Comment (2)</button>
+                                <button disabled><i class="fas fa-share"></i> Share</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="chat-input-area">
+                        <input type="text" placeholder="Create a new post..." class="py-2 px-4 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" disabled>
+                        <button class="bg-indigo-600 text-white py-2 px-4 hover:bg-indigo-700 disabled:opacity-50" disabled>Post</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Data arrays - initialized from localStorage or as empty arrays
+        let contactsData = JSON.parse(localStorage.getItem('c1OpenHub_contacts')) || [];
+        let companiesData = JSON.parse(localStorage.getItem('c1OpenHub_companies')) || [];
+        let dealsData = JSON.parse(localStorage.getItem('c1OpenHub_deals')) || [];
+        let tasksData = JSON.parse(localStorage.getItem('c1OpenHub_tasks')) || [];
+        let emissionsData = JSON.parse(localStorage.getItem('c1OpenHub_emissions')) || [];
+        let coursesData = JSON.parse(localStorage.getItem('c1OpenHub_courses')) || [
+            { id: 'c1', title: 'Introduction to ERP Systems', description: 'Learn the fundamentals of Enterprise Resource Planning systems and their role in modern business operations.', provider: 'C1 Academy', duration: '4 weeks', certificate: 'ERP Fundamentals', roleFocus: 'Junior ERP System Developer' },
+            { id: 'c2', title: 'Digital Transformation Strategy', description: 'Understand key concepts and strategies for driving digital transformation within organizations.', provider: 'C1 Academy', duration: '6 weeks', certificate: 'Digital Transformation Specialist', roleFocus: 'Digital Transformation Analyst' },
+            { id: 'c3', title: 'Green IT Practices', description: 'Explore sustainable practices in IT infrastructure and how to reduce environmental impact.', provider: 'C1 Academy', duration: '3 weeks', certificate: 'Green IT Certification', roleFocus: 'Sustainability Analyst' },
+            { id: 'c4', title: 'Financial Accounting Software Basics', description: 'An introductory course to using accounting software for financial record-keeping and reporting.', provider: 'C1 Academy', duration: '5 weeks', certificate: 'Accounting Software User', roleFocus: 'Accounting Software Support' },
+            { id: 'c5', title: 'HRIS Data Management', description: 'Learn to manage and analyze data within Human Resources Information Systems (HRIS).', provider: 'C1 Academy', duration: '4 weeks', certificate: 'HRIS Data Professional', roleFocus: 'HRIS Data Analyst' },
+            { id: 'c6', title: 'Advanced Supply Chain Management', description: 'Deep dive into optimizing supply chain processes and logistics for global operations.', provider: 'C1 Academy', duration: '8 weeks', certificate: 'Supply Chain Expert', roleFocus: 'Supply Chain Manager' },
+            { id: 'c7', title: 'Cybersecurity for Business Professionals', description: 'Essential cybersecurity concepts and best practices for non-technical business roles.', provider: 'C1 Academy', duration: '3 weeks', certificate: 'Business Cybersecurity', roleFocus: 'All Business Roles' },
+            { id: 'c8', title: 'Project Management Fundamentals (Agile)', description: 'An introduction to Agile methodologies and project management principles applicable to various industries.', provider: 'C1 Academy', duration: '5 weeks', certificate: 'Agile Project Practitioner', roleFocus: 'Project Coordinator' }
+        ];
+
+        // Global variables to track the index of the item being edited
+        let currentEditingContactIndex = null;
+        let currentEditingCompanyIndex = null;
+        let currentEditingDealIndex = null;
+        let currentEditingTaskIndex = null;
+        let currentEditingEmissionIndex = null;
+        // let currentEditingCourseIndex = null; // Removed as course edit/add is removed
+
+        // Pagination state for each table
+        const paginationState = {
+            contacts: { currentPage: 1, itemsPerPage: 5 },
+            companies: { currentPage: 1, itemsPerPage: 5 },
+            deals: { currentPage: 1, itemsPerPage: 5 },
+            tasks: { currentPage: 1, itemsPerPage: 5 },
+            emissions: { currentPage: 1, itemsPerPage: 5 },
+            courses: { currentPage: 1, itemsPerPage: 5 }
+        };
+
+        // Chart instances to destroy and re-create
+        let pieCharts = {}; // Stores Chart.js instances for pie charts by ID
+        let lineChart = null; // Stores the Chart.js instance for the line graph
+
+        // --- General Utility Functions ---
+
+        // Function to format large numbers (e.g., 1234567 -> 1.23M)
+        function formatLargeNumber(num) {
+            if (num === null || isNaN(num)) {
+                return '-';
+            }
+            if (num >= 1000000000) {
+                return (num / 1000000000).toFixed(2) + 'B';
+            }
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(2) + 'M';
+            }
+            if (num >= 1000) {
+                return (num / 1000).toFixed(2) + 'K';
+            }
+            return num.toFixed(2); // Keep two decimal places for smaller numbers
+        }
+
+        // Function to show a custom message box
+        function showMessageBox(message, type = 'success') {
+            const messageBox = document.getElementById('messageBox');
+            messageBox.textContent = message;
+            // Remove any existing type classes and the hidden-element class
+            messageBox.className = `message-box ${type}`; // Apply type class (success/error/info)
+            messageBox.classList.remove('hidden-element'); // Make it visible
+
+            // Hide the message box after 3 seconds
+            setTimeout(() => {
+                messageBox.classList.add('hidden-element'); // Hide it again
+            }, 3000);
+        }
+
+        let confirmActionCallback = null; // Stores the callback function for confirmation
+
+        // Function to show the confirmation modal
+        function showConfirmationModal(title, message, callback) {
+            const modal = document.getElementById('confirmationModal');
+            document.getElementById('confirmationModalTitle').textContent = title;
+            document.getElementById('confirmationModalMessage').textContent = message;
+            confirmActionCallback = callback; // Store the callback
+
+            document.getElementById('confirmActionButton').onclick = () => {
+                if (confirmActionCallback) {
+                    confirmActionCallback(); // Execute the stored callback
+                }
+                closeConfirmationModal(); // Close the modal after action
+            };
+
+            modal.style.display = 'flex'; // Show the modal
+        }
+
+        // Function to close the confirmation modal
+        function closeConfirmationModal() {
+            document.getElementById('confirmationModal').style.display = 'none';
+            confirmActionCallback = null; // Clear the callback
+        }
+
+        // Function to update all dashboard counts
+        function updateDashboardCounts() {
+            document.getElementById('dashboardTotalContacts').textContent = contactsData.length;
+            document.getElementById('dashboardTotalCompanies').textContent = companiesData.length;
+            document.getElementById('dashboardTotalDeals').textContent = dealsData.length;
+
+            const openTasksCount = tasksData.filter(task => task.status !== 'Completed').length;
+            document.getElementById('dashboardOpenTasks').textContent = openTasksCount;
+
+            // Calculate total deal value, excluding 'Closed Lost' deals
+            const totalDealValue = dealsData.reduce((sum, deal) => {
+                if (deal.stage === 'Closed Lost') {
+                    return sum; // Do not add value for closed lost deals
+                }
+                return sum + parseFloat(deal.amount || 0);
+            }, 0);
+            document.getElementById('dashboardTotalDealValue').textContent = `$${formatLargeNumber(totalDealValue)}`;
+
+            const totalEmissions = emissionsData.reduce((sum, emission) => sum + (parseFloat(emission.scope1 || 0) + parseFloat(emission.scope2 || 0) + parseFloat(emission.scope3 || 0)), 0);
+            document.getElementById('dashboardTotalEmissions').textContent = `${formatLargeNumber(totalEmissions)} tCO2e`;
+        }
+
+        // Function to handle page changes for tables
+        function changePage(tableId, direction) {
+            const state = paginationState[tableId];
+            const data = {
+                contacts: contactsData,
+                companies: companiesData,
+                deals: dealsData,
+                tasks: tasksData,
+                emissions: emissionsData,
+                courses: coursesData
+            }[tableId];
+
+            const searchQueryInput = document.getElementById(`${tableId}SearchInput`);
+            const searchQuery = searchQueryInput ? searchQueryInput.value : '';
+
+            let filteredData = data;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = data.filter(item =>
+                    Object.values(item).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const totalPages = Math.ceil(filteredData.length / state.itemsPerPage);
+            state.currentPage += direction;
+
+            if (state.currentPage < 1) {
+                state.currentPage = 1;
+            } else if (state.currentPage > totalPages && totalPages > 0) {
+                state.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                state.currentPage = 0; // No pages if no data
+            }
+
+            // Re-render the specific table with the new page
+            switch (tableId) {
+                case 'contacts': renderContacts(searchQuery); break;
+                case 'companies': renderCompanies(searchQuery); break;
+                case 'deals': renderDeals(searchQuery); break;
+                case 'tasks': renderTasks(searchQuery); break;
+                case 'emissions': renderEmissions(searchQuery); break;
+                case 'courses': renderCourses(searchQuery); break;
+            }
+        }
+
+
+        // --- Contacts Functions ---
+
+        // Function to render contacts into the table
+        function renderContacts(searchQuery = '') {
+            const tableBody = document.getElementById('contactsTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('contactsEmptyState');
+            const contactsTable = document.getElementById('contactsTable');
+            const paginationDiv = document.getElementById('contactsPagination');
+            const prevBtn = document.getElementById('contactsPrevBtn');
+            const nextBtn = document.getElementById('contactsNextBtn');
+            const pageInfoSpan = document.getElementById('contactsPageInfo');
+
+            let filteredData = contactsData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = contactsData.filter(contact =>
+                    Object.values(contact).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.contacts;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            // Adjust current page if it's out of bounds after filtering
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.contacts.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.contacts.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.contacts.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                contactsTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                contactsTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((contact, index) => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${contact.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contact.email}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contact.phone}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${contact.company}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="openContactModal(${contactsData.indexOf(contact)})">Edit</a>
+                            <button onclick="deleteContact(${contactsData.indexOf(contact)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    `;
+                });
+
+                prevBtn.disabled = paginationState.contacts.currentPage <= 1;
+                nextBtn.disabled = paginationState.contacts.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('contactsRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // Function to open the create/edit contact modal
+        function openContactModal(index = null) {
+            const modal = document.getElementById('contactModal');
+            const form = document.getElementById('contactForm');
+            const title = document.getElementById('contactModalTitle');
+
+            currentEditingContactIndex = index; // Set global index for editing
+
+            if (index !== null && contactsData[index]) {
+                // Edit mode: Populate form with existing data
+                const contact = contactsData[index];
+                title.textContent = 'Edit Contact';
+                document.getElementById('contactName').value = contact.name;
+                document.getElementById('contactEmail').value = contact.email;
+                document.getElementById('contactPhone').value = contact.phone;
+                document.getElementById('contactCompany').value = contact.company;
+            } else {
+                // Create mode: Clear form
+                title.textContent = 'Create New Contact';
+                form.reset();
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Function to close the create/edit contact modal
+        function closeContactModal() {
+            document.getElementById('contactModal').style.display = 'none';
+            currentEditingContactIndex = null; // Reset editing index
+        }
+
+        // Function to handle contact form submission (Create/Edit)
+        function handleContactFormSubmit(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const name = document.getElementById('contactName').value;
+            const email = document.getElementById('contactEmail').value;
+            const phone = document.getElementById('contactPhone').value;
+            const company = document.getElementById('contactCompany').value;
+
+            if (!name || !email || !phone || !company) {
+                showMessageBox('Please fill in all fields.', 'error');
+                return;
+            }
+
+            if (currentEditingContactIndex !== null) {
+                // Edit existing contact
+                contactsData[currentEditingContactIndex] = { name, email, phone, company };
+                showMessageBox('Contact updated successfully!', 'success');
+            } else {
+                // Create new contact
+                const newContact = { name, email, phone, company };
+                contactsData.push(newContact);
+                showMessageBox('Contact created successfully!', 'success');
+            }
+            localStorage.setItem('c1OpenHub_contacts', JSON.stringify(contactsData)); // Save to localStorage
+            paginationState.contacts.currentPage = 1; // Reset to first page after adding/editing
+            renderContacts(document.getElementById('contactSearchInput').value); // Re-render with current search query
+            closeContactModal(); // Close the modal
+        }
+
+        // Function to delete a contact
+        function deleteContact(index) {
+            showConfirmationModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete ${contactsData[index].name}? This action cannot be undone.`,
+                () => {
+                    contactsData.splice(index, 1); // Remove contact from array
+                    localStorage.setItem('c1OpenHub_contacts', JSON.stringify(contactsData)); // Save to localStorage
+                    paginationState.contacts.currentPage = 1; // Reset to first page after deleting
+                    renderContacts(document.getElementById('contactSearchInput').value); // Re-render with current search query
+                    showMessageBox('Contact deleted successfully!', 'success');
+                }
+            );
+        }
+
+        // --- Companies Functions ---
+
+        // Function to render companies into the table
+        function renderCompanies(searchQuery = '') {
+            const tableBody = document.getElementById('companiesTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('companiesEmptyState');
+            const companiesTable = document.getElementById('companiesTable');
+            const paginationDiv = document.getElementById('companiesPagination');
+            const prevBtn = document.getElementById('companiesPrevBtn');
+            const nextBtn = document.getElementById('companiesNextBtn');
+            const pageInfoSpan = document.getElementById('companiesPageInfo');
+
+            let filteredData = companiesData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = companiesData.filter(company =>
+                    Object.values(company).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.companies;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.companies.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.companies.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.companies.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                companiesTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                companiesTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((company, index) => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${company.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${company.industry || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:underline">${company.website}</a>` : '-'}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${company.phone || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="openCompanyModal(${companiesData.indexOf(company)})">Edit</a>
+                            <button onclick="deleteCompany(${companiesData.indexOf(company)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    `;
+                });
+
+                prevBtn.disabled = paginationState.companies.currentPage <= 1;
+                nextBtn.disabled = paginationState.companies.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('companiesRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // Function to open the create/edit company modal
+        function openCompanyModal(index = null) {
+            const modal = document.getElementById('companyModal');
+            const form = document.getElementById('companyForm');
+            const title = document.getElementById('companyModalTitle');
+
+            currentEditingCompanyIndex = index; // Set global index for editing
+
+            if (index !== null && companiesData[index]) {
+                // Edit mode: Populate form with existing data
+                const company = companiesData[index];
+                title.textContent = 'Edit Company';
+                document.getElementById('companyName').value = company.name;
+                document.getElementById('companyIndustry').value = company.industry || '';
+                document.getElementById('companyWebsite').value = company.website || '';
+                document.getElementById('companyPhone').value = company.phone || '';
+                document.getElementById('companyCity').value = company.city || '';
+                document.getElementById('companyState').value = company.state || '';
+                document.getElementById('companyCountry').value = company.country || '';
+            } else {
+                // Create mode: Clear form
+                title.textContent = 'Create New Company';
+                form.reset();
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Function to close the create/edit company modal
+        function closeCompanyModal() {
+            document.getElementById('companyModal').style.display = 'none';
+            currentEditingCompanyIndex = null; // Reset editing index
+        }
+
+        // Function to handle company form submission
+        function handleCompanyFormSubmit(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('companyName').value;
+            const industry = document.getElementById('companyIndustry').value;
+            const website = document.getElementById('companyWebsite').value;
+            const phone = document.getElementById('companyPhone').value;
+            const city = document.getElementById('companyCity').value;
+            const state = document.getElementById('companyState').value;
+            const country = document.getElementById('companyCountry').value;
+
+            if (!name) {
+                showMessageBox('Company Name is required.', 'error');
+                return;
+            }
+
+            const companyData = { name, industry, website, phone, city, state, country };
+
+            if (currentEditingCompanyIndex !== null) {
+                // Edit existing company
+                companiesData[currentEditingCompanyIndex] = companyData;
+                showMessageBox('Company updated successfully!', 'success');
+            } else {
+                // Create new company
+                companiesData.push(companyData);
+                showMessageBox('Company created successfully!', 'success');
+            }
+            localStorage.setItem('c1OpenHub_companies', JSON.stringify(companiesData)); // Save to localStorage
+            paginationState.companies.currentPage = 1; // Reset to first page after adding/editing
+            renderCompanies(document.getElementById('companySearchInput').value); // Re-render with current search query
+            closeCompanyModal();
+        }
+
+        // Function to delete a company
+        function deleteCompany(index) {
+            showConfirmationModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete ${companiesData[index].name}? This action cannot be undone.`,
+                () => {
+                    companiesData.splice(index, 1);
+                    localStorage.setItem('c1OpenHub_companies', JSON.stringify(companiesData)); // Save to localStorage
+                    paginationState.companies.currentPage = 1; // Reset to first page after deleting
+                    renderCompanies(document.getElementById('companySearchInput').value); // Re-render with current search query
+                    showMessageBox('Company deleted successfully!', 'success');
+                }
+            );
+        }
+
+        // --- Deals Functions ---
+
+        // Function to render deals into the table
+        function renderDeals(searchQuery = '') {
+            const tableBody = document.getElementById('dealsTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('dealsEmptyState');
+            const dealsTable = document.getElementById('dealsTable');
+            const paginationDiv = document.getElementById('dealsPagination');
+            const prevBtn = document.getElementById('dealsPrevBtn');
+            const nextBtn = document.getElementById('dealsNextBtn');
+            const pageInfoSpan = document.getElementById('dealsPageInfo');
+
+            let filteredData = dealsData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = dealsData.filter(deal =>
+                    Object.values(deal).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.deals;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.deals.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.deals.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.deals.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                dealsTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                dealsTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((deal, index) => {
+                    const row = tableBody.insertRow();
+                    const formattedAmount = `$${formatLargeNumber(parseFloat(deal.amount))}`;
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${deal.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formattedAmount}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${deal.closeDate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${deal.stage}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${deal.associatedContact || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="openDealModal(${dealsData.indexOf(deal)})">Edit</a>
+                            <button onclick="deleteDeal(${dealsData.indexOf(deal)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    `;
+                });
+
+                prevBtn.disabled = paginationState.deals.currentPage <= 1;
+                nextBtn.disabled = paginationState.deals.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('dealsRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // Function to open the create/edit deal modal
+        function openDealModal(index = null) {
+            const modal = document.getElementById('dealModal');
+            const form = document.getElementById('dealForm');
+            const title = document.getElementById('dealModalTitle');
+
+            currentEditingDealIndex = index; // Set global index for editing
+
+            if (index !== null && dealsData[index]) {
+                // Edit mode: Populate form with existing data
+                const deal = dealsData[index];
+                title.textContent = 'Edit Deal';
+                document.getElementById('dealName').value = deal.name;
+                document.getElementById('dealAmount').value = deal.amount;
+                document.getElementById('dealCloseDate').value = deal.closeDate;
+                document.getElementById('dealStage').value = deal.stage;
+                document.getElementById('dealAssociatedContact').value = deal.associatedContact || '';
+            } else {
+                // Create mode: Clear form
+                title.textContent = 'Create New Deal';
+                form.reset();
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Function to close the create/edit deal modal
+        function closeDealModal() {
+            document.getElementById('dealModal').style.display = 'none';
+            currentEditingDealIndex = null; // Reset editing index
+        }
+
+        // Function to handle deal form submission
+        function handleDealFormSubmit(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('dealName').value;
+            const amount = document.getElementById('dealAmount').value;
+            const closeDate = document.getElementById('dealCloseDate').value;
+            const stage = document.getElementById('dealStage').value;
+            const associatedContact = document.getElementById('dealAssociatedContact').value;
+
+            if (!name || !amount || !closeDate || !stage) {
+                showMessageBox('Please fill in all required deal fields (Name, Amount, Close Date, Stage).', 'error');
+                return;
+            }
+
+            const dealData = { name, amount: parseFloat(amount), closeDate, stage, associatedContact };
+
+            if (currentEditingDealIndex !== null) {
+                // Edit existing deal
+                dealsData[currentEditingDealIndex] = dealData;
+                showMessageBox('Deal updated successfully!', 'success');
+            } else {
+                // Create new deal
+                dealsData.push(dealData);
+                showMessageBox('Deal created successfully!', 'success');
+            }
+            localStorage.setItem('c1OpenHub_deals', JSON.stringify(dealsData)); // Save to localStorage
+            paginationState.deals.currentPage = 1; // Reset to first page after adding/editing
+            renderDeals(document.getElementById('dealSearchInput').value); // Re-render with current search query
+            closeDealModal();
+        }
+
+        // Function to delete a deal
+        function deleteDeal(index) {
+            showConfirmationModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete deal "${dealsData[index].name}"? This action cannot be undone.`,
+                () => {
+                    dealsData.splice(index, 1);
+                    localStorage.setItem('c1OpenHub_deals', JSON.stringify(dealsData)); // Save to localStorage
+                    paginationState.deals.currentPage = 1; // Reset to first page after deleting
+                    renderDeals(document.getElementById('dealSearchInput').value); // Re-render with current search query
+                    showMessageBox('Deal deleted successfully!', 'success');
+                }
+            );
+        }
+
+        // --- Tasks Functions ---
+
+        // Function to render tasks into the table
+        function renderTasks(searchQuery = '') {
+            const tableBody = document.getElementById('tasksTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('tasksEmptyState');
+            const tasksTable = document.getElementById('tasksTable');
+            const paginationDiv = document.getElementById('tasksPagination');
+            const prevBtn = document.getElementById('tasksPrevBtn');
+            const nextBtn = document.getElementById('tasksNextBtn');
+            const pageInfoSpan = document.getElementById('tasksPageInfo');
+
+            let filteredData = tasksData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = tasksData.filter(task =>
+                    Object.values(task).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.tasks;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.tasks.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.tasks.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.tasks.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                tasksTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                tasksTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((task, index) => {
+                    const row = tableBody.insertRow();
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${task.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.dueDate}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.status}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${task.associatedItem || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="openTaskModal(${tasksData.indexOf(task)})">Edit</a>
+                            <button onclick="deleteTask(${tasksData.indexOf(task)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                    `;
+                });
+
+                prevBtn.disabled = paginationState.tasks.currentPage <= 1;
+                nextBtn.disabled = paginationState.tasks.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('tasksRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // Function to open the create/edit task modal
+        function openTaskModal(index = null) {
+            const modal = document.getElementById('taskModal');
+            const form = document.getElementById('taskForm');
+            const title = document.getElementById('taskModalTitle');
+
+            currentEditingTaskIndex = index; // Set global index for editing
+
+            if (index !== null && tasksData[index]) {
+                // Edit mode: Populate form with existing data
+                const task = tasksData[index];
+                title.textContent = 'Edit Task';
+                document.getElementById('taskName').value = task.name;
+                document.getElementById('taskDueDate').value = task.dueDate;
+                document.getElementById('taskStatus').value = task.status;
+                document.getElementById('taskAssociatedItem').value = task.associatedItem || '';
+            } else {
+                // Create mode: Clear form
+                title.textContent = 'Create New Task';
+                form.reset();
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Function to close the create/edit task modal
+        function closeTaskModal() {
+            document.getElementById('taskModal').style.display = 'none';
+            currentEditingTaskIndex = null; // Reset editing index
+        }
+
+        // Function to handle task form submission
+        function handleTaskFormSubmit(event) {
+            event.preventDefault();
+
+            const name = document.getElementById('taskName').value;
+            const dueDate = document.getElementById('taskDueDate').value;
+            const status = document.getElementById('taskStatus').value;
+            const associatedItem = document.getElementById('taskAssociatedItem').value;
+
+            if (!name || !dueDate || !status) {
+                showMessageBox('Please fill in all required task fields (Name, Due Date, Status).', 'error');
+                return;
+            }
+
+            const taskData = { name, dueDate, status, associatedItem };
+
+            if (currentEditingTaskIndex !== null) {
+                // Edit existing task
+                tasksData[currentEditingTaskIndex] = taskData;
+                showMessageBox('Task updated successfully!', 'success');
+            } else {
+                // Create new task
+                tasksData.push(taskData);
+                showMessageBox('Task created successfully!', 'success');
+            }
+            localStorage.setItem('c1OpenHub_tasks', JSON.stringify(tasksData)); // Save to localStorage
+            paginationState.tasks.currentPage = 1; // Reset to first page after adding/editing
+            renderTasks(document.getElementById('taskSearchInput').value); // Re-render with current search query
+            closeTaskModal();
+        }
+
+        // Function to delete a task
+        function deleteTask(index) {
+            showConfirmationModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete task "${tasksData[index].name}"? This action cannot be undone.`,
+                () => {
+                    tasksData.splice(index, 1);
+                    localStorage.setItem('c1OpenHub_tasks', JSON.stringify(tasksData)); // Save to localStorage
+                    paginationState.tasks.currentPage = 1; // Reset to first page after deleting
+                    renderTasks(document.getElementById('taskSearchInput').value); // Re-render with current search query
+                    showMessageBox('Task deleted successfully!', 'success');
+                }
+            );
+        }
+
+        // --- Emissions Functions ---
+
+        // Function to add a new source input field to the emission modal
+        function addEmissionSourceInput(sourceName = '', percentage = '') {
+            const container = document.getElementById('emissionSourcesContainer');
+            const div = document.createElement('div');
+            div.className = 'emission-source-item';
+            div.innerHTML = `
+                <input type="text" placeholder="Source Name (e.g., Electricity)" value="${sourceName}" class="source-name shadow appearance-none border rounded py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <input type="number" placeholder="Percentage (%)" value="${percentage}" min="0" max="100" step="0.01" class="source-percentage shadow appearance-none border rounded w-24 py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <button type="button" class="remove-source-btn" onclick="this.parentNode.remove()">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+
+        // Function to render emissions into the table
+        function renderEmissions(searchQuery = '') {
+            const tableBody = document.getElementById('emissionsTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('emissionsEmptyState');
+            const emissionsTable = document.getElementById('emissionsTable');
+            const paginationDiv = document.getElementById('emissionsPagination');
+            const prevBtn = document.getElementById('emissionsPrevBtn');
+            const nextBtn = document.getElementById('emissionsNextBtn');
+            const pageInfoSpan = document.getElementById('emissionsPageInfo');
+
+            let filteredData = emissionsData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = emissionsData.filter(emission =>
+                    Object.values(emission).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    ) || (emission.notes && emission.notes.toLowerCase().includes(lowerCaseQuery)) ||
+                       (emission.sources && emission.sources.some(s => s.name.toLowerCase().includes(lowerCaseQuery)))
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.emissions;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.emissions.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.emissions.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.emissions.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            // Destroy existing pie charts before re-rendering
+            Object.values(pieCharts).forEach(chart => chart.destroy());
+            pieCharts = {}; // Clear the object
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                emissionsTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                emissionsTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((emission, i) => {
+                    const row = tableBody.insertRow();
+                    const totalEmissions = (parseFloat(emission.scope1 || 0) + parseFloat(emission.scope2 || 0) + parseFloat(emission.scope3 || 0));
+                    const formattedTotalEmissions = formatLargeNumber(totalEmissions);
+                    const chartCanvasId = `emission-chart-canvas-${emission.company.replace(/\s/g, '')}-${emission.year}-${i}`; // Unique ID for each canvas
+
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${emission.company}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emission.year}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatLargeNumber(parseFloat(emission.scope1 || 0))}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatLargeNumber(parseFloat(emission.scope2 || 0))}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatLargeNumber(parseFloat(emission.scope3 || 0))}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-semibold">${formattedTotalEmissions}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a href="#" class="text-indigo-600 hover:text-indigo-900" onclick="openEmissionModal(${emissionsData.indexOf(emission)})">Edit</a>
+                            <button onclick="deleteEmission(${emissionsData.indexOf(emission)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <div class="chart-container">
+                                <canvas id="${chartCanvasId}"></canvas>
+                            </div>
+                        </td>
+                    `;
+                    // Draw chart if sources exist and generateChart is true
+                    if (emission.sources && emission.sources.length > 0 && emission.generateChart) {
+                        // Delay drawing to ensure the DOM element is rendered
+                        setTimeout(() => {
+                            drawPieChart(chartCanvasId, emission.sources);
+                        }, 0);
+                    } else {
+                        // If no chart, clear the canvas container
+                        const canvasContainer = row.querySelector(`#${chartCanvasId}`).parentNode;
+                        if (canvasContainer) {
+                            canvasContainer.innerHTML = ''; // Remove the canvas element
+                        }
+                    }
+                });
+
+                prevBtn.disabled = paginationState.emissions.currentPage <= 1;
+                nextBtn.disabled = paginationState.emissions.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('emissionsRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // Function to draw a pie chart using Chart.js
+        function drawPieChart(canvasId, data) {
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            const ctx = canvas.getContext('2d');
+
+            // Generate a set of distinct colors for the pie chart slices
+            const backgroundColors = [
+                '#4F46E5', // Indigo-600
+                '#8B5CF6', // Violet-500
+                '#EC4899', // Pink-500
+                '#F59E0B', // Amber-500
+                '#10B981', // Emerald-500
+                '#EF4444', // Red-500
+                '#3B82F6', // Blue-500
+                '#6B7280', // Gray-500
+                '#D946EF', // Fuchsia-500
+                '#06B6D4'  // Cyan-500
+            ];
+
+            pieCharts[canvasId] = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: data.map(d => d.name),
+                    datasets: [{
+                        data: data.map(d => d.percentage),
+                        backgroundColor: backgroundColors.slice(0, data.length), // Use enough colors
+                        borderColor: '#ffffff',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // Hide legend for small pie charts
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += context.parsed + '%';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Function to open the create/edit emission modal
+        function openEmissionModal(index = null) {
+            const modal = document.getElementById('emissionModal');
+            const form = document.getElementById('emissionForm');
+            const title = document.getElementById('emissionModalTitle');
+            const sourcesContainer = document.getElementById('emissionSourcesContainer');
+
+            currentEditingEmissionIndex = index; // Set global index for editing
+            sourcesContainer.innerHTML = ''; // Clear existing source inputs
+
+            if (index !== null && emissionsData[index]) {
+                // Edit mode: Populate form with existing data
+                const emission = emissionsData[index];
+                title.textContent = 'Edit Emission Record';
+                document.getElementById('emissionCompany').value = emission.company;
+                document.getElementById('emissionYear').value = emission.year;
+                document.getElementById('emissionScope1').value = emission.scope1;
+                document.getElementById('emissionScope2').value = emission.scope2;
+                document.getElementById('emissionScope3').value = emission.scope3;
+                document.getElementById('emissionNotes').value = emission.notes || '';
+                document.getElementById('generateChartCheckbox').checked = emission.generateChart || false;
+
+                if (emission.sources && emission.sources.length > 0) {
+                    emission.sources.forEach(source => {
+                        addEmissionSourceInput(source.name, source.percentage);
+                    });
+                }
+            } else {
+                // Create mode: Clear form
+                title.textContent = 'Add Emission Record';
+                form.reset();
+                document.getElementById('generateChartCheckbox').checked = false; // Reset checkbox
+            }
+            modal.style.display = 'flex';
+        }
+
+        // Function to close the create/edit emission modal
+        function closeEmissionModal() {
+            document.getElementById('emissionModal').style.display = 'none';
+            currentEditingEmissionIndex = null; // Reset editing index
+        }
+
+        // Function to handle emission form submission
+        function handleEmissionFormSubmit(event) {
+            event.preventDefault();
+
+            const company = document.getElementById('emissionCompany').value;
+            const year = document.getElementById('emissionYear').value;
+            const scope1 = document.getElementById('emissionScope1').value;
+            const scope2 = document.getElementById('emissionScope2').value;
+            const scope3 = document.getElementById('emissionScope3').value;
+            const notes = document.getElementById('emissionNotes').value;
+            const generateChart = document.getElementById('generateChartCheckbox').checked;
+
+            if (!company || !year) {
+                showMessageBox('Company Name and Year are required for emission records.', 'error');
+                return;
+            }
+
+            const sources = [];
+            let totalPercentage = 0;
+            const sourceItems = document.querySelectorAll('#emissionSourcesContainer .emission-source-item');
+
+            let hasInvalidSource = false;
+            sourceItems.forEach(item => {
+                const nameInput = item.querySelector('.source-name');
+                const percentageInput = item.querySelector('.source-percentage');
+
+                const sourceName = nameInput.value.trim();
+                const percentage = parseFloat(percentageInput.value);
+
+                if (sourceName && !isNaN(percentage) && percentage >= 0) {
+                    sources.push({ name: sourceName, percentage: percentage });
+                    totalPercentage += percentage;
+                } else if (sourceName || percentageInput.value.trim() !== '') {
+                    // If one part is filled, but the other is invalid
+                    hasInvalidSource = true;
+                }
+            });
+
+            if (hasInvalidSource) {
+                showMessageBox('Please ensure all source names are filled and percentages are valid numbers (0-100).', 'error');
+                return; // Stop submission
+            }
+
+            // Validate total percentage for sources if chart generation is enabled
+            if (generateChart && sources.length > 0 && Math.abs(totalPercentage - 100) > 0.01) {
+                showMessageBox(`Warning: Emission source percentages sum to ${totalPercentage.toFixed(2)}%, not 100%. Please adjust.`, 'info');
+                // You might choose to prevent submission here if strict 100% is required.
+                // For now, we'll proceed but inform the user.
+            }
+
+
+            const emissionData = {
+                company,
+                year: parseInt(year),
+                scope1: parseFloat(scope1 || 0),
+                scope2: parseFloat(scope2 || 0),
+                scope3: parseFloat(scope3 || 0),
+                notes,
+                sources, // Store the collected sources
+                generateChart // Store the chart generation preference
+            };
+
+            if (currentEditingEmissionIndex !== null) {
+                // Edit existing emission record
+                emissionsData[currentEditingEmissionIndex] = emissionData;
+                showMessageBox('Emission record updated successfully!', 'success');
+            } else {
+                // Create new emission record
+                emissionsData.push(emissionData);
+                showMessageBox('Emission record added successfully!', 'success');
+            }
+            localStorage.setItem('c1OpenHub_emissions', JSON.stringify(emissionsData)); // Save to localStorage
+            paginationState.emissions.currentPage = 1; // Reset to first page after adding/editing
+            renderEmissions(document.getElementById('emissionSearchInput').value); // Re-render with current search query
+            closeEmissionModal();
+            drawLineGraph(); // Update line graph after data change
+        }
+
+        // Function to delete an emission record
+        function deleteEmission(index) {
+            showConfirmationModal(
+                'Confirm Deletion',
+                `Are you sure you want to delete the emission record for ${emissionsData[index].company} (${emissionsData[index].year})? This action cannot be undone.`,
+                () => {
+                    emissionsData.splice(index, 1);
+                    localStorage.setItem('c1OpenHub_emissions', JSON.stringify(emissionsData)); // Save to localStorage
+                    paginationState.emissions.currentPage = 1; // Reset to first page after deleting
+                    renderEmissions(document.getElementById('emissionSearchInput').value); // Re-render with current search query
+                    showMessageBox('Emission record deleted successfully!', 'success');
+                    drawLineGraph(); // Update line graph after data change
+                }
+            );
+        }
+
+        // --- Line Graph Functions (Chart.js) ---
+
+        function drawLineGraph() {
+            const canvasId = 'emissionsLineGraphCanvas';
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+
+            // Destroy existing chart instance if it exists
+            if (lineChart) {
+                lineChart.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+
+            // Group data by company and calculate total emissions per year
+            const companyEmissionsMap = new Map();
+            emissionsData.forEach(d => {
+                if (!companyEmissionsMap.has(d.company)) {
+                    companyEmissionsMap.set(d.company, []);
+                }
+                companyEmissionsMap.get(d.company).push({
+                    year: d.year,
+                    total: d.scope1 + d.scope2 + d.scope3
+                });
+            });
+
+            const companyData = Array.from(companyEmissionsMap, ([company, records]) => ({
+                company: company,
+                emissions: records.sort((a, b) => a.year - b.year) // Sort by year for line graph
+            }));
+
+            // Filter out companies with no valid emission data
+            const validCompanyData = companyData.filter(d => d.emissions.length > 0);
+
+            if (validCompanyData.length === 0) {
+                canvas.style.display = 'none'; // Hide canvas if no data
+                // Add a message if needed
+                const container = document.getElementById('emissionsLineGraphContainer');
+                if (!container.querySelector('.no-data-message')) {
+                    const message = document.createElement('p');
+                    message.className = 'text-center text-gray-500 mt-8 no-data-message';
+                    message.textContent = 'No emission data available for trends.';
+                    container.appendChild(message);
+                }
+                return;
+            } else {
+                canvas.style.display = 'block'; // Show canvas if data exists
+                const noDataMessage = document.getElementById('emissionsLineGraphContainer').querySelector('.no-data-message');
+                if (noDataMessage) {
+                    noDataMessage.remove();
+                }
+            }
+
+            // Get all unique years to use as labels for the x-axis
+            const allYears = Array.from(new Set(emissionsData.map(d => d.year))).sort((a, b) => a - b);
+
+            // Generate a palette of colors for the lines
+            const lineColors = [
+                '#4F46E5', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
+                '#EF4444', '#3B82F6', '#6B7280', '#D946EF', '#06B6D4',
+                '#FACC15', '#A78BFA', '#FB7185', '#6EE7B7', '#F87171'
+            ];
+
+            const datasets = validCompanyData.map((company, index) => {
+                // Create a data array with nulls for missing years to ensure continuous line across all years
+                const dataPoints = allYears.map(year => {
+                    const record = company.emissions.find(e => e.year === year);
+                    return record ? record.total : null;
+                });
+
+                return {
+                    label: company.company,
+                    data: dataPoints,
+                    borderColor: lineColors[index % lineColors.length],
+                    backgroundColor: lineColors[index % lineColors.length],
+                    fill: false,
+                    tension: 0.1, // Smooth the lines
+                    pointRadius: 5,
+                    pointHoverRadius: 8
+                };
+            });
+
+            lineChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: allYears,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 20,
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        },
+                        title: {
+                            display: false, // Title is handled by H3 tag
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed.y !== null) {
+                                        label += formatLargeNumber(context.parsed.y) + ' tCO2e';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Year',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value, index, ticks) {
+                                    // Only show integer years
+                                    if (Number.isInteger(value)) {
+                                        return value;
+                                    }
+                                    return null;
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Total Emissions (tCO2e)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value, index, ticks) {
+                                    return formatLargeNumber(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // --- Courses Functions ---
+
+        // Function to render courses into the table
+        function renderCourses(searchQuery = '') {
+            const tableBody = document.getElementById('coursesTableBody');
+            tableBody.innerHTML = ''; // Clear existing rows
+
+            const emptyState = document.getElementById('coursesEmptyState');
+            const coursesTable = document.getElementById('coursesTable');
+            const paginationDiv = document.getElementById('coursesPagination');
+            const prevBtn = document.getElementById('coursesPrevBtn');
+            const nextBtn = document.getElementById('coursesNextBtn');
+            const pageInfoSpan = document.getElementById('coursesPageInfo');
+
+            let filteredData = coursesData;
+            if (searchQuery) {
+                const lowerCaseQuery = searchQuery.toLowerCase();
+                filteredData = coursesData.filter(course =>
+                    Object.values(course).some(value =>
+                        String(value).toLowerCase().includes(lowerCaseQuery)
+                    )
+                );
+            }
+
+            const { currentPage, itemsPerPage } = paginationState.courses;
+            const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+            if (currentPage > totalPages && totalPages > 0) {
+                paginationState.courses.currentPage = totalPages;
+            } else if (totalPages === 0) {
+                paginationState.courses.currentPage = 0;
+            }
+
+            const startIndex = (paginationState.courses.currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = filteredData.slice(startIndex, endIndex);
+
+            if (paginatedData.length === 0 && filteredData.length === 0) {
+                emptyState.classList.remove('hidden');
+                coursesTable.classList.add('hidden');
+                paginationDiv.classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                coursesTable.classList.remove('hidden');
+                paginationDiv.classList.remove('hidden');
+
+                paginatedData.forEach((course, index) => {
+                    const row = tableBody.insertRow();
+                    // Removed the 'Actions' column content
+                    row.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${course.title}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.provider || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.duration || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.certificate || '-'}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.roleFocus || '-'}</td>
+                    `;
+                });
+
+                prevBtn.disabled = paginationState.courses.currentPage <= 1;
+                nextBtn.disabled = paginationState.courses.currentPage >= totalPages;
+                const startRecord = filteredData.length > 0 ? startIndex + 1 : 0;
+                const endRecord = Math.min(endIndex, filteredData.length);
+                pageInfoSpan.textContent = `Showing ${startRecord}-${endRecord} of ${filteredData.length} records`;
+            }
+            document.getElementById('coursesRecordCount').textContent = `${filteredData.length} records`;
+            updateDashboardCounts();
+        }
+
+        // The following functions related to course modals and actions are removed
+        // as per the request to remove add/edit/delete functionality from the Courses tab.
+        /*
+        function openCourseModal(index = null) { ... }
+        function closeCourseModal() { ... }
+        function handleCourseFormSubmit(event) { ... }
+        function deleteCourse(index) { ... }
+        */
+
+
+        // Function to show a specific tab content and activate its sidebar item
+        function showTab(tabId) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+
+            // Deactivate all sidebar items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+
+            // Show the selected tab content
+            const selectedTabContent = document.getElementById(tabId + 'Content');
+            selectedTabContent.classList.remove('hidden');
+
+            // Add bordered-section class to tab content if it's not the dashboard
+            // Note: For emissions, the inner sections now have their own borders
+            if (tabId !== 'dashboard' && tabId !== 'emissions' && tabId !== 'chat') { // Exclude chat from direct bordered-section
+                selectedTabContent.classList.add('bordered-section');
+            } else {
+                selectedTabContent.classList.remove('bordered-section');
+            }
+
+
+            // Activate the corresponding sidebar item
+            document.getElementById(tabId + 'Tab').classList.add('active');
+
+            // Close the mobile nav menu after selecting a tab
+            toggleMobileNav(false); // Pass false to explicitly close
+
+            // Reset page to 1 for the newly shown tab
+            if (paginationState[tabId]) {
+                paginationState[tabId].currentPage = 1;
+            }
+
+            // Render data for the active tab
+            switch (tabId) {
+                case 'contacts':
+                    renderContacts(document.getElementById('contactSearchInput').value);
+                    break;
+                case 'companies':
+                    renderCompanies(document.getElementById('companySearchInput').value);
+                    break;
+                case 'deals':
+                    renderDeals(document.getElementById('dealSearchInput').value);
+                    break;
+                case 'tasks':
+                    renderTasks(document.getElementById('taskSearchInput').value);
+                    break;
+                case 'emissions':
+                    renderEmissions(document.getElementById('emissionSearchInput').value);
+                    // Also render the line graph for emissions
+                    drawLineGraph();
+                    break;
+                case 'courses':
+                    renderCourses(document.getElementById('courseSearchInput').value);
+                    break;
+                case 'dashboard':
+                    updateDashboardCounts();
+                    break;
+                case 'chat':
+                    // No specific rendering logic for chat as it's static UI for now
+                    break;
+            }
+        }
+
+        // --- Mobile Navigation Toggle ---
+        function toggleMobileNav(forceClose = null) {
+            const navMenu = document.getElementById('mobileNavMenu');
+            const overlay = document.getElementById('mobileNavOverlay');
+
+            if (forceClose !== null) {
+                if (forceClose) {
+                    navMenu.classList.remove('open');
+                    overlay.classList.remove('active');
+                } else {
+                    navMenu.classList.add('open');
+                    overlay.classList.add('active');
+                }
+            } else {
+                navMenu.classList.toggle('open');
+                overlay.classList.toggle('active');
+            }
+        }
+
+
+        // Initial tab display on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            showTab('dashboard'); // Show dashboard by default
+            updateDashboardCounts(); // Initialize all dashboard counts
+        });
+    </script>
+</body>
+</html>
