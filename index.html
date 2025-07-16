@@ -469,6 +469,36 @@
         .chat-input-area button {
             border-radius: 0.5rem;
         }
+
+        /* New styles for perpetual scrolling text in table cells */
+        .marquee-container {
+            max-width: 250px; /* Fixed width for the container */
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .marquee-content-inner {
+            display: inline-block; /* Allows content to be wider than container */
+            white-space: nowrap;
+            animation: none; /* Default state */
+        }
+
+        .marquee-content-inner span {
+            padding-right: 20px; /* Gap between repetitions */
+        }
+
+        /* Keyframe for scrolling animation */
+        @keyframes marquee-animation {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(var(--marquee-scroll-distance)); }
+        }
+
+        .marquee-content-inner.is-scrolling {
+            animation-name: marquee-animation;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -2404,7 +2434,7 @@
             const lineColors = [
                 '#4F46E5', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981',
                 '#EF4444', '#3B82F6', '#6B7280', '#D946EF', '#06B6D4',
-                '#FA1cc5', '#A78BFA', '#FB7185', '#6EE7B7', '#F87171'
+                '#FAC1c5', '#A78BFA', '#FB7185', '#6EE7B7', '#F87171'
             ];
 
             const datasets = validCompanyData.map((company, index) => {
@@ -2473,16 +2503,8 @@
                                     size: 14,
                                     weight: 'bold'
                                 }
-                            },
-                            ticks: {
-                                callback: function(value, index, ticks) {
-                                    // Only show integer years
-                                    if (Number.isInteger(value)) {
-                                        return value;
-                                    }
-                                    return null;
-                                }
                             }
+                            // Removed the custom ticks callback for better year display
                         },
                         y: {
                             title: {
@@ -2552,16 +2574,52 @@
                 coursesTable.classList.remove('hidden');
                 paginationDiv.classList.remove('hidden');
 
-                paginatedData.forEach((course, index) => {
+                paginatedData.forEach((course, i) => {
                     const row = tableBody.insertRow();
-                    // Removed the 'Actions' column content
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${course.title}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <div class="marquee-container">
+                                <div class="marquee-content-inner" id="course-title-marquee-${course.id || i}">
+                                    <span>${course.title}</span>
+                                    <span>${course.title}</span> <!-- Duplicate for seamless loop -->
+                                </div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.provider || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.duration || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.certificate || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${course.roleFocus || '-'}</td>
                     `;
+
+                    // After the row is in the DOM, apply marquee logic
+                    const marqueeContainer = row.querySelector('.marquee-container');
+                    const marqueeContentInner = row.querySelector(`#course-title-marquee-${course.id || i}`);
+                    const firstSpan = marqueeContentInner.querySelector('span'); // Get one instance to measure its width
+
+                    // Use requestAnimationFrame for safer DOM measurements after layout
+                    requestAnimationFrame(() => {
+                        if (marqueeContainer && marqueeContentInner && firstSpan) {
+                            const containerWidth = marqueeContainer.clientWidth;
+                            const textWidth = firstSpan.scrollWidth;
+                            const gap = 20; // Matches padding-right in CSS
+
+                            if (textWidth > containerWidth) {
+                                // Calculate the total width of one text instance plus the gap
+                                const scrollDistance = -(textWidth + gap);
+                                // Calculate duration based on content length for consistent speed
+                                // (e.g., 50 pixels per second)
+                                const duration = (textWidth + gap) / 50;
+
+                                marqueeContentInner.style.setProperty('--marquee-scroll-distance', `${scrollDistance}px`);
+                                marqueeContentInner.style.animationDuration = `${duration}s`;
+                                marqueeContentInner.classList.add('is-scrolling');
+                            } else {
+                                // If content doesn't overflow, remove the duplicated text and animation
+                                marqueeContentInner.innerHTML = `<span>${course.title}</span>`;
+                                marqueeContentInner.classList.remove('is-scrolling');
+                            }
+                        }
+                    });
                 });
 
                 prevBtn.disabled = paginationState.courses.currentPage <= 1;
