@@ -345,10 +345,42 @@
             max-height: 100%;
         }
 
-        /* Courses table hover effect */
-        #coursesTableBody tr:hover {
+        /* Table row hover effect */
+        #coursesTableBody tr:hover,
+        #companiesTableBody tr:hover,
+        #emissionsTableBody tr:hover {
             background-color: #f3f4f6; /* Light gray background on hover */
             cursor: pointer;
+        }
+
+        /* New styles for perpetual scrolling text in table cells */
+        .marquee-container {
+            max-width: 250px; /* Fixed width for the container */
+            overflow: hidden;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .marquee-content-inner {
+            display: inline-block; /* Allows content to be wider than container */
+            white-space: nowrap;
+            animation: none; /* Default state */
+        }
+
+        .marquee-content-inner span {
+            padding-right: 20px; /* Gap between repetitions */
+        }
+
+        /* Keyframe for scrolling animation */
+        @keyframes marquee-animation {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(var(--marquee-scroll-distance)); }
+        }
+
+        .marquee-content-inner.is-scrolling {
+            animation-name: marquee-animation;
+            animation-timing-function: linear;
+            animation-iteration-count: infinite;
         }
         /* Chat Section Specific Styles */
         .chat-post {
@@ -468,36 +500,6 @@
         }
         .chat-input-area button {
             border-radius: 0.5rem;
-        }
-
-        /* New styles for perpetual scrolling text in table cells */
-        .marquee-container {
-            max-width: 250px; /* Fixed width for the container */
-            overflow: hidden;
-            white-space: nowrap;
-            position: relative;
-        }
-
-        .marquee-content-inner {
-            display: inline-block; /* Allows content to be wider than container */
-            white-space: nowrap;
-            animation: none; /* Default state */
-        }
-
-        .marquee-content-inner span {
-            padding-right: 20px; /* Gap between repetitions */
-        }
-
-        /* Keyframe for scrolling animation */
-        @keyframes marquee-animation {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(var(--marquee-scroll-distance)); }
-        }
-
-        .marquee-content-inner.is-scrolling {
-            animation-name: marquee-animation;
-            animation-timing-function: linear;
-            animation-iteration-count: infinite;
         }
     </style>
 </head>
@@ -1663,13 +1665,25 @@
                 companiesTable.classList.remove('hidden');
                 paginationDiv.classList.remove('hidden');
 
-                paginatedData.forEach((company, index) => {
+                paginatedData.forEach((company, i) => {
                     const row = tableBody.insertRow();
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${company.name}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <div class="marquee-container">
+                                <div class="marquee-content-inner" id="company-name-marquee-${company.id || i}">
+                                    <span>${company.name}</span>
+                                    <span>${company.name}</span>
+                                </div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${company.industry || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            ${company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:underline">${company.website}</a>` : '-'}
+                            <div class="marquee-container">
+                                <div class="marquee-content-inner" id="company-website-marquee-${company.id || i}">
+                                    <span>${company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:underline">${company.website}</a>` : '-'}</span>
+                                    <span>${company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:underline">${company.website}</a>` : '-'}</span>
+                                </div>
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${company.phone || '-'}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -1677,6 +1691,54 @@
                             <button onclick="deleteCompany(${companiesData.indexOf(company)})" class="ml-2 text-red-600 hover:text-red-900">Delete</button>
                         </td>
                     `;
+
+                    // Apply marquee logic for company name
+                    const nameMarqueeContainer = row.querySelector(`#company-name-marquee-${company.id || i}`).parentNode;
+                    const nameMarqueeContentInner = row.querySelector(`#company-name-marquee-${company.id || i}`);
+                    const nameFirstSpan = nameMarqueeContentInner.querySelector('span');
+
+                    requestAnimationFrame(() => {
+                        if (nameMarqueeContainer && nameMarqueeContentInner && nameFirstSpan) {
+                            const containerWidth = nameMarqueeContainer.clientWidth;
+                            const textWidth = nameFirstSpan.scrollWidth;
+                            const gap = 20;
+
+                            if (textWidth > containerWidth) {
+                                const scrollDistance = -(textWidth + gap);
+                                const duration = (textWidth + gap) / 50; // 50 pixels per second
+                                nameMarqueeContentInner.style.setProperty('--marquee-scroll-distance', `${scrollDistance}px`);
+                                nameMarqueeContentInner.style.animationDuration = `${duration}s`;
+                                nameMarqueeContentInner.classList.add('is-scrolling');
+                            } else {
+                                nameMarqueeContentInner.innerHTML = `<span>${company.name}</span>`;
+                                nameMarqueeContentInner.classList.remove('is-scrolling');
+                            }
+                        }
+                    });
+
+                    // Apply marquee logic for website
+                    const websiteMarqueeContainer = row.querySelector(`#company-website-marquee-${company.id || i}`).parentNode;
+                    const websiteMarqueeContentInner = row.querySelector(`#company-website-marquee-${company.id || i}`);
+                    const websiteFirstSpan = websiteMarqueeContentInner.querySelector('span');
+
+                    requestAnimationFrame(() => {
+                        if (websiteMarqueeContainer && websiteMarqueeContentInner && websiteFirstSpan) {
+                            const containerWidth = websiteMarqueeContainer.clientWidth;
+                            const textWidth = websiteFirstSpan.scrollWidth;
+                            const gap = 20;
+
+                            if (textWidth > containerWidth) {
+                                const scrollDistance = -(textWidth + gap);
+                                const duration = (textWidth + gap) / 50;
+                                websiteMarqueeContentInner.style.setProperty('--marquee-scroll-distance', `${scrollDistance}px`);
+                                websiteMarqueeContentInner.style.animationDuration = `${duration}s`;
+                                websiteMarqueeContentInner.classList.add('is-scrolling');
+                            } else {
+                                websiteMarqueeContentInner.innerHTML = `<span>${company.website ? `<a href="${company.website}" target="_blank" class="text-blue-600 hover:underline">${company.website}</a>` : '-'}</span>`;
+                                websiteMarqueeContentInner.classList.remove('is-scrolling');
+                            }
+                        }
+                    });
                 });
 
                 prevBtn.disabled = paginationState.companies.currentPage <= 1;
@@ -2138,7 +2200,14 @@
                     const chartCanvasId = `emission-chart-canvas-${emission.company.replace(/\s/g, '')}-${emission.year}-${i}`; // Unique ID for each canvas
 
                     row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${emission.company}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            <div class="marquee-container">
+                                <div class="marquee-content-inner" id="emission-company-marquee-${emission.id || i}">
+                                    <span>${emission.company}</span>
+                                    <span>${emission.company}</span>
+                                </div>
+                            </div>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emission.year}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatLargeNumber(parseFloat(emission.scope1 || 0))}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatLargeNumber(parseFloat(emission.scope2 || 0))}</td>
@@ -2167,6 +2236,30 @@
                             canvasContainer.innerHTML = ''; // Remove the canvas element
                         }
                     }
+
+                    // Apply marquee logic for emission company name
+                    const emissionCompanyMarqueeContainer = row.querySelector(`#emission-company-marquee-${emission.id || i}`).parentNode;
+                    const emissionCompanyMarqueeContentInner = row.querySelector(`#emission-company-marquee-${emission.id || i}`);
+                    const emissionCompanyFirstSpan = emissionCompanyMarqueeContentInner.querySelector('span');
+
+                    requestAnimationFrame(() => {
+                        if (emissionCompanyMarqueeContainer && emissionCompanyMarqueeContentInner && emissionCompanyFirstSpan) {
+                            const containerWidth = emissionCompanyMarqueeContainer.clientWidth;
+                            const textWidth = emissionCompanyFirstSpan.scrollWidth;
+                            const gap = 20;
+
+                            if (textWidth > containerWidth) {
+                                const scrollDistance = -(textWidth + gap);
+                                const duration = (textWidth + gap) / 50;
+                                emissionCompanyMarqueeContentInner.style.setProperty('--marquee-scroll-distance', `${scrollDistance}px`);
+                                emissionCompanyMarqueeContentInner.style.animationDuration = `${duration}s`;
+                                emissionCompanyMarqueeContentInner.classList.add('is-scrolling');
+                            } else {
+                                emissionCompanyMarqueeContentInner.innerHTML = `<span>${emission.company}</span>`;
+                                emissionCompanyMarqueeContentInner.classList.remove('is-scrolling');
+                            }
+                        }
+                    });
                 });
 
                 prevBtn.disabled = paginationState.emissions.currentPage <= 1;
